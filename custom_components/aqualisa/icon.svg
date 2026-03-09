@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <rect width="256" height="256" rx="32" fill="#0054A6"/>
+  <g transform="translate(128,100)" stroke="white" stroke-width="6" stroke-linecap="round" fill="none">
+    <!-- Shower head -->
+    <ellipse cx="0" cy="-50" rx="32" ry="10" fill="white" stroke="none"/>
+    <rect x="-32" y="-54" width="64" height="8" rx="4" fill="white" stroke="none"/>
+    <!-- Arm -->
+    <path d="M 0,-54 L 0,-72 Q 0,-82 10,-82 L 50,-82" stroke="white" stroke-width="7" fill="none"/>
+    <!-- Water drops -->
+    <line x1="-20" y1="-38" x2="-22" y2="-18"/>
+    <line x1="-8" y1="-38" x2="-10" y2="-14"/>
+    <line x1="4" y1="-38" x2="2" y2="-16"/>
+    <line x1="16" y1="-38" x2="14" y2="-18"/>
+    <!-- Water drops lower -->
+    <line x1="-14" y1="-10" x2="-16" y2="10"/>
+    <line x1="0" y1="-8" x2="-2" y2="14"/>
+    <line x1="12" y1="-10" x2="10" y2="8"/>
+    <!-- Small drops -->
+    <circle cx="-18" cy="22" r="2.5" fill="white" stroke="none"/>
+    <circle cx="-4" cy="26" r="2.5" fill="white" stroke="none"/>
+    <circle cx="8" cy="20" r="2.5" fill="white" stroke="none"/>
+  </g>
+  <!-- Aqualisa text -->
+  <text x="128" y="192" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="white" letter-spacing="3">AQUALISA</text>
+</svg>

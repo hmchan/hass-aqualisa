@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aqualisa Login",
+        "description": "Enter your Aqualisa account credentials.",
+        "data": {
+          "username": "Email",
+          "password": "Password",
+          "region": "Region"
+        }
+      },
+      "mfa_select": {
+        "title": "Select MFA Method",
+        "description": "Choose how to receive your verification code.",
+        "data": {
+          "mfa_type": "Method"
+        }
+      },
+      "mfa_code": {
+        "title": "Enter MFA Code",
+        "description": "A verification code has been sent via {mfa_type}. Enter it below.",
+        "data": {
+          "mfa_code": "Verification Code"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid username or password.",
+      "account_locked": "Account is locked. Try again later.",
+      "cannot_connect": "Unable to connect to Aqualisa.",
+      "invalid_mfa": "Invalid verification code.",
+      "mfa_failed": "MFA verification failed."
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
+    }
+  }
+}

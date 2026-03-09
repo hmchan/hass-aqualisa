@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Login Aqualisa",
+        "description": "Introduza as credenciais da sua conta Aqualisa.",
+        "data": {
+          "username": "E-mail",
+          "password": "Palavra-passe",
+          "region": "Região"
+        }
+      },
+      "mfa_select": {
+        "title": "Selecionar método MFA",
+        "description": "Escolha como pretende receber o seu código de verificação.",
+        "data": {
+          "mfa_type": "Método"
+        }
+      },
+      "mfa_code": {
+        "title": "Introduzir código MFA",
+        "description": "Um código de verificação foi enviado por {mfa_type}. Introduza-o abaixo.",
+        "data": {
+          "mfa_code": "Código de verificação"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Nome de utilizador ou palavra-passe inválidos.",
+      "account_locked": "A conta está bloqueada. Tente novamente mais tarde.",
+      "cannot_connect": "Não foi possível ligar ao Aqualisa.",
+      "invalid_mfa": "Código de verificação inválido.",
+      "mfa_failed": "A verificação MFA falhou."
+    },
+    "abort": {
+      "already_configured": "Esta conta já está configurada."
+    }
+  }
+}

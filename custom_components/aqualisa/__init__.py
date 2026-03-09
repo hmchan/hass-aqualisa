@@ -1,0 +1,55 @@
+"""Aqualisa Smart Shower integration."""
+
+import logging
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+from .api import AqualisaApi
+from .const import CONF_REGION, DOMAIN
+from .coordinator import AqualisaCoordinator
+
+_LOGGER = logging.getLogger(__name__)
+
+PLATFORMS = [Platform.WATER_HEATER, Platform.SENSOR, Platform.SELECT, Platform.NUMBER, Platform.BINARY_SENSOR, Platform.SWITCH]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Aqualisa from a config entry."""
+    session = async_get_clientsession(hass)
+    api = AqualisaApi(session, entry.data.get(CONF_REGION, "uk"))
+
+    # Restore tokens or re-login
+    token_data = entry.data.get("token_data", {})
+    if token_data and token_data.get("access_token"):
+        api.restore_tokens(token_data)
+    else:
+        await api.login(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
+
+    coordinator = AqualisaCoordinator(hass, api)
+    await coordinator.async_setup()
+
+    # Store updated tokens back
+    new_data = dict(entry.data)
+    new_data["token_data"] = api.token_data
+    hass.config_entries.async_update_entry(entry, data=new_data)
+
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload Aqualisa config entry."""
+    coordinator: AqualisaCoordinator = hass.data[DOMAIN][entry.entry_id]
+    await coordinator.async_shutdown()
+
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+
+    return unload_ok

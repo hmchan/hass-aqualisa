@@ -1,0 +1,12 @@
+{
+  "domain": "aqualisa",
+  "name": "Aqualisa Smart Shower",
+  "version": "1.0.0",
+  "documentation": "https://github.com/hmchan/hass-aqualisa",
+  "issue_tracker": "https://github.com/hmchan/hass-aqualisa/issues",
+  "requirements": ["firebase-messaging>=0.4.0"],
+  "dependencies": [],
+  "codeowners": ["@hmchan"],
+  "config_flow": true,
+  "iot_class": "cloud_push"
+}

@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aqualisa ログイン",
+        "description": "Aqualisa アカウントの認証情報を入力してください。",
+        "data": {
+          "username": "メールアドレス",
+          "password": "パスワード",
+          "region": "地域"
+        }
+      },
+      "mfa_select": {
+        "title": "認証方法の選択",
+        "description": "確認コードの受信方法を選択してください。",
+        "data": {
+          "mfa_type": "方法"
+        }
+      },
+      "mfa_code": {
+        "title": "認証コードの入力",
+        "description": "{mfa_type}で確認コードが送信されました。以下に入力してください。",
+        "data": {
+          "mfa_code": "確認コード"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "ユーザー名またはパスワードが正しくありません。",
+      "account_locked": "アカウントがロックされています。しばらくしてからお試しください。",
+      "cannot_connect": "Aqualisa に接続できません。",
+      "invalid_mfa": "確認コードが正しくありません。",
+      "mfa_failed": "多要素認証に失敗しました。"
+    },
+    "abort": {
+      "already_configured": "このアカウントは既に設定されています。"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aqualisa 登入",
+        "description": "請輸入您的 Aqualisa 帳戶憑證。",
+        "data": {
+          "username": "電子郵件",
+          "password": "密碼",
+          "region": "地區"
+        }
+      },
+      "mfa_select": {
+        "title": "選擇驗證方式",
+        "description": "選擇接收驗證碼的方式。",
+        "data": {
+          "mfa_type": "方式"
+        }
+      },
+      "mfa_code": {
+        "title": "輸入驗證碼",
+        "description": "驗證碼已透過{mfa_type}發送，請在下方輸入。",
+        "data": {
+          "mfa_code": "驗證碼"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "使用者名稱或密碼無效。",
+      "account_locked": "帳戶已鎖定，請稍後再試。",
+      "cannot_connect": "無法連線至 Aqualisa。",
+      "invalid_mfa": "驗證碼無效。",
+      "mfa_failed": "多重驗證失敗。"
+    },
+    "abort": {
+      "already_configured": "此帳戶已設定完成。"
+    }
+  }
+}
