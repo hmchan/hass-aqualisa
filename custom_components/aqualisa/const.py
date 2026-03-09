@@ -5,10 +5,13 @@ DOMAIN = "aqualisa"
 BASE_URL_UK = "https://appuser.aqualisa.co.uk/api/v1"
 BASE_URL_EU = "https://appuser-eu.aqualisa.co.uk/api/v1"
 
-# Firebase config from the Aqualisa Android APK
+# Firebase config extracted from the Aqualisa Android APK.
+# These are NOT secrets — Firebase API keys are public client identifiers
+# embedded in every copy of the app. They do not grant privileged access.
+# See: https://firebase.google.com/docs/projects/api-keys
 FCM_SENDER_ID = "134284945450"
 FCM_APP_ID = "1:134284945450:android:8d07581fa1cb30479b7b53"
-FCM_API_KEY = "AIzaSyBx4yHZotCGRs-lDHa8d1RB3fGM4ProsRE"
+FCM_API_KEY = "AIzaSyBx4yHZotCGRs-lDHa8d1RB3fGM4ProsRE"  # noqa: S105
 FCM_PROJECT_ID = "aqualisa-smart-showers-93922"
 
 CONF_REGION = "region"
