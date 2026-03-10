@@ -10,6 +10,7 @@ from firebase_messaging import FcmPushClient, FcmRegisterConfig, FcmPushClientCo
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.storage import Store
 
 from .api import AqualisaApi
 from .const import (
@@ -26,6 +27,11 @@ _LOGGER = logging.getLogger(__name__)
 
 SIGNAL_SHOWER_UPDATE = f"{DOMAIN}_shower_update"
 
+FCM_WATCHDOG_INTERVAL = 60  # seconds between watchdog checks
+FCM_STARTUP_RETRIES = 10
+FCM_CREDENTIALS_STORAGE_KEY = f"{DOMAIN}_fcm_credentials"
+FCM_CREDENTIALS_STORAGE_VERSION = 1
+
 
 class AqualisaCoordinator:
     """Coordinates data for all Aqualisa showers."""
@@ -39,11 +45,22 @@ class AqualisaCoordinator:
         self._fcm_client: FcmPushClient | None = None
         self._fcm_credentials: dict | None = None
         self._installation_id: str = str(uuid.uuid4())
+        self._watchdog_task: asyncio.Task | None = None
+        self._shutting_down: bool = False
+        self._credential_store = Store(hass, FCM_CREDENTIALS_STORAGE_VERSION, FCM_CREDENTIALS_STORAGE_KEY)
 
     async def async_setup(self) -> None:
         """Initial data fetch and FCM setup."""
         await self.async_refresh()
+        # Restore persisted FCM credentials
+        stored = await self._credential_store.async_load()
+        if stored:
+            self._fcm_credentials = stored.get("credentials")
+            self._installation_id = stored.get("installation_id", self._installation_id)
+            _LOGGER.debug("Restored persisted FCM credentials")
         await self._async_start_fcm()
+        # Start watchdog to auto-restart FCM if it dies
+        self._watchdog_task = asyncio.create_task(self._async_fcm_watchdog())
 
     async def async_refresh(self) -> None:
         """Fetch all shower data from the API."""
@@ -98,6 +115,13 @@ class AqualisaCoordinator:
         """Handle FCM credentials update."""
         _LOGGER.debug("FCM credentials updated")
         self._fcm_credentials = credentials
+        # Persist credentials so we reuse the same push token after restart
+        self.hass.async_create_task(
+            self._credential_store.async_save({
+                "credentials": credentials,
+                "installation_id": self._installation_id,
+            })
+        )
 
     async def _async_start_fcm(self) -> None:
         """Start FCM push notification listener with retries."""
@@ -111,12 +135,13 @@ class AqualisaCoordinator:
         client_config = FcmPushClientConfig(
             connection_retry_count=10,
             log_warn_limit=5,
-            log_debug_verbose=True,
         )
 
         http_session = async_get_clientsession(self.hass)
 
-        for attempt in range(10):
+        for attempt in range(FCM_STARTUP_RETRIES):
+            if self._shutting_down:
+                return
             try:
                 self._fcm_client = FcmPushClient(
                     callback=self._on_notification,
@@ -128,31 +153,11 @@ class AqualisaCoordinator:
                 )
 
                 _LOGGER.info("Starting Aqualisa FCM push client (attempt %d)...", attempt + 1)
-                await self._fcm_client.checkin_or_register()
-                _LOGGER.info("FCM checkin/register complete")
-                _LOGGER.info("FCM credentials keys: %s", list(self._fcm_credentials.keys()) if self._fcm_credentials else "None")
-                if self._fcm_credentials:
-                    gcm = self._fcm_credentials.get("gcm", {})
-                    _LOGGER.info("GCM app_id: %s, android_id: %s", gcm.get("app_id"), gcm.get("android_id"))
-                    fcm_reg = self._fcm_credentials.get("fcm", {}).get("registration", {})
-                    _LOGGER.info("FCM registration token: %s...", str(fcm_reg.get("token", ""))[:30] if isinstance(fcm_reg, dict) else str(fcm_reg)[:30])
+                fcm_token = await self._fcm_client.checkin_or_register()
+                _LOGGER.info("FCM checkin/register complete, token: %s...", fcm_token[:20])
 
-                # Register push token with Aqualisa (FCM registration token)
-                # The Android app uses FirebaseMessaging.Instance.Token which is
-                # the FCM registration token, not the GCM token.
-                fcm_token = None
-                if self._fcm_credentials:
-                    fcm_reg = self._fcm_credentials.get("fcm", {}).get("registration", {})
-                    if isinstance(fcm_reg, dict):
-                        fcm_token = fcm_reg.get("token", "")
-                    elif isinstance(fcm_reg, str):
-                        fcm_token = fcm_reg
-                    if not fcm_token:
-                        # Fallback to GCM token
-                        fcm_token = self._fcm_credentials.get("gcm", {}).get("token", "")
-
+                # Register push token with Aqualisa
                 if fcm_token:
-                    _LOGGER.info("Push token obtained: %s...", fcm_token[:20])
                     try:
                         await self.api.register_push(self._installation_id, fcm_token)
                     except Exception:
@@ -167,12 +172,27 @@ class AqualisaCoordinator:
             except Exception:
                 delay = min(2 ** attempt, 60)
                 _LOGGER.warning(
-                    "FCM startup failed (attempt %d/10), retrying in %ds",
-                    attempt + 1, delay, exc_info=True,
+                    "FCM startup failed (attempt %d/%d), retrying in %ds",
+                    attempt + 1, FCM_STARTUP_RETRIES, delay, exc_info=True,
                 )
                 await asyncio.sleep(delay)
 
-        _LOGGER.error("Failed to start FCM listener after 10 attempts")
+        _LOGGER.error("Failed to start FCM listener after %d attempts", FCM_STARTUP_RETRIES)
+
+    async def _async_fcm_watchdog(self) -> None:
+        """Monitor FCM client and restart it if it dies."""
+        while not self._shutting_down:
+            await asyncio.sleep(FCM_WATCHDOG_INTERVAL)
+            if self._shutting_down:
+                break
+            if self._fcm_client and not self._fcm_client.is_started():
+                _LOGGER.warning("FCM client is not running, restarting...")
+                try:
+                    await self._fcm_client.stop()
+                except Exception:
+                    pass
+                self._fcm_client = None
+                await self._async_start_fcm()
 
     def _parse_push_message(self, raw) -> dict | None:
         """Parse FCM message into dict. Handles both dict and pipe-delimited string formats."""
@@ -210,7 +230,10 @@ class AqualisaCoordinator:
         return result if result else None
 
     async def async_shutdown(self) -> None:
-        """Shut down FCM listener."""
+        """Shut down FCM listener and watchdog."""
+        self._shutting_down = True
+        if self._watchdog_task and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
         if self._fcm_client and self._fcm_client.is_started():
             await self._fcm_client.stop()
             _LOGGER.info("Aqualisa FCM listener stopped")
