@@ -23,6 +23,13 @@
         "data": {
           "mfa_code": "驗證碼"
         }
+      },
+      "reauth_confirm": {
+        "title": "重新驗證 Aqualisa",
+        "description": "{username} 的工作階段已過期，請輸入密碼以重新連線。",
+        "data": {
+          "password": "密碼"
+        }
       }
     },
     "error": {
@@ -33,7 +40,8 @@
       "mfa_failed": "多重驗證失敗。"
     },
     "abort": {
-      "already_configured": "此帳戶已設定完成。"
+      "already_configured": "此帳戶已設定完成。",
+      "reauth_successful": "重新驗證成功。"
     }
   }
 }

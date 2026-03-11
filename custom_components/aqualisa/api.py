@@ -33,6 +33,13 @@ class AqualisaApi:
         self._refresh_token: str | None = None
         self._access_token_expires_at: float = 0
         self._refresh_token_expires_at: float = 0
+        self._username: str | None = None
+        self._password: str | None = None
+
+    def set_relogin_credentials(self, username: str, password: str) -> None:
+        """Store credentials for automatic re-login on token expiry."""
+        self._username = username
+        self._password = password
 
     @property
     def base_url(self) -> str:
@@ -63,6 +70,13 @@ class AqualisaApi:
         self._access_token_expires_at = data.get("access_token_expires_at", 0)
         self._refresh_token_expires_at = data.get("refresh_token_expires_at", 0)
 
+    def clear_tokens(self) -> None:
+        """Clear all stored tokens."""
+        self._access_token = None
+        self._refresh_token = None
+        self._access_token_expires_at = 0
+        self._refresh_token_expires_at = 0
+
     async def _request(
         self, method: str, path: str, role: str = "appuserrole",
         body: dict | None = None, auth: bool = True,
@@ -77,11 +91,15 @@ class AqualisaApi:
             try:
                 if method == "GET":
                     async with self._session.get(url, headers=headers) as resp:
-                        data = await resp.json()
+                        if resp.status == 401:
+                            raise AqualisaApiError("Unauthorized (401)")
+                        data = await resp.json(content_type=None)
                 else:
                     headers["Content-Type"] = "application/json"
                     async with self._session.post(url, headers=headers, json=body or {}) as resp:
-                        data = await resp.json()
+                        if resp.status == 401:
+                            raise AqualisaApiError("Unauthorized (401)")
+                        data = await resp.json(content_type=None)
 
                 if data.get("status") != "1":
                     errors = data.get("errors", [])
@@ -143,17 +161,33 @@ class AqualisaApi:
         return details
 
     async def ensure_token(self) -> None:
-        """Refresh access token if expired."""
+        """Refresh access token if expired, re-login if refresh token is also expired."""
         if time.time() < self._access_token_expires_at - 60:
             return
-        if time.time() >= self._refresh_token_expires_at - 60:
-            raise AqualisaApiError("Session expired, re-login required")
-        _LOGGER.debug("Refreshing Aqualisa access token")
-        data = await self._request("POST", "authmodule/refresh", role="publicrole", body={
-            "accessToken": self._access_token,
-            "refreshToken": self._refresh_token,
-        }, auth=False)
-        self._store_tokens(data.get("details", {}))
+
+        # If refresh token is still valid, use it
+        if time.time() < self._refresh_token_expires_at - 60:
+            _LOGGER.debug("Refreshing Aqualisa access token")
+            try:
+                data = await self._request("POST", "authmodule/refresh", role="publicrole", body={
+                    "accessToken": self._access_token,
+                    "refreshToken": self._refresh_token,
+                }, auth=False)
+                self._store_tokens(data.get("details", {}))
+                return
+            except AqualisaApiError:
+                _LOGGER.warning("Token refresh failed, will attempt re-login")
+
+        # Refresh token expired or refresh failed — re-login with stored credentials
+        if self._username and self._password:
+            _LOGGER.info("Re-logging in to Aqualisa (refresh token expired)")
+            self.clear_tokens()
+            await self.login(self._username, self._password)
+            if not self._access_token:
+                raise AqualisaApiError("Re-login requires MFA, please reconfigure")
+            return
+
+        raise AqualisaApiError("Session expired and no credentials available for re-login")
 
     async def list_homes(self) -> list[dict]:
         await self.ensure_token()

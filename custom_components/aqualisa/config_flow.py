@@ -27,6 +27,7 @@ class AqualisaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._mfa_type: str = ""
         self._mfa_types: list[str] = []
         self._token_data: dict = {}
+        self._reauth_entry: config_entries.ConfigEntry | None = None
 
     async def async_step_user(self, user_input=None):
         """Handle the initial login step."""
@@ -148,14 +149,83 @@ class AqualisaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"mfa_type": self._mfa_type},
         )
 
+    async def async_step_reauth(self, entry_data: dict | None = None):
+        """Handle re-authentication when tokens expire."""
+        self._reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if self._reauth_entry:
+            self._username = self._reauth_entry.data.get(CONF_USERNAME, "")
+            self._region = self._reauth_entry.data.get(CONF_REGION, REGION_UK)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None):
+        """Confirm re-authentication with password (and MFA if needed)."""
+        errors = {}
+
+        if user_input is not None:
+            self._password = user_input[CONF_PASSWORD]
+            try:
+                session = aiohttp.ClientSession()
+                try:
+                    api = AqualisaApi(session, self._region)
+                    details = await api.login(self._username, self._password)
+                    self._token_data = api.token_data
+
+                    mfa_details = details.get("mfaDetails", {})
+                    if mfa_details and mfa_details.get("bEnabled"):
+                        self._mfa_token = mfa_details.get("mfaToken", "")
+                        self._mfa_types = mfa_details.get("enabledMfaChallengeTypes", [])
+                        self._token_data = {}
+
+                        if len(self._mfa_types) == 1:
+                            self._mfa_type = self._mfa_types[0]
+                            await api.mfa_challenge(self._mfa_token, self._mfa_type)
+                            return await self.async_step_mfa_code()
+
+                        return await self.async_step_mfa_select()
+
+                    return self._finish_entry()
+
+                finally:
+                    await session.close()
+
+            except AqualisaApiError as err:
+                error_codes = [e.get("messageCode", "") for e in err.errors]
+                if "username_or_password_incorrect" in error_codes:
+                    errors["base"] = "invalid_auth"
+                elif "account_locked" in error_codes:
+                    errors["base"] = "account_locked"
+                else:
+                    errors["base"] = "cannot_connect"
+                    _LOGGER.error("Re-auth login failed: %s", err)
+            except Exception:
+                _LOGGER.exception("Unexpected error during re-auth")
+                errors["base"] = "cannot_connect"
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({
+                vol.Required(CONF_PASSWORD): str,
+            }),
+            errors=errors,
+            description_placeholders={"username": self._username},
+        )
+
+    def _finish_entry(self):
+        """Create or update the config entry."""
+        data = {
+            CONF_USERNAME: self._username,
+            CONF_PASSWORD: self._password,
+            CONF_REGION: self._region,
+            "token_data": self._token_data,
+        }
+        if self._reauth_entry:
+            self.hass.config_entries.async_update_entry(self._reauth_entry, data=data)
+            self.hass.async_create_task(
+                self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
+            )
+            return self.async_abort(reason="reauth_successful")
+        return self.async_create_entry(title=self._username, data=data)
+
     def _create_entry(self):
         """Create the config entry."""
-        return self.async_create_entry(
-            title=self._username,
-            data={
-                CONF_USERNAME: self._username,
-                CONF_PASSWORD: self._password,
-                CONF_REGION: self._region,
-                "token_data": self._token_data,
-            },
-        )
+        return self._finish_entry()

@@ -23,6 +23,13 @@
         "data": {
           "mfa_code": "確認コード"
         }
+      },
+      "reauth_confirm": {
+        "title": "Aqualisa の再認証",
+        "description": "{username} のセッションが期限切れになりました。パスワードを入力して再接続してください。",
+        "data": {
+          "password": "パスワード"
+        }
       }
     },
     "error": {
@@ -33,7 +40,8 @@
       "mfa_failed": "多要素認証に失敗しました。"
     },
     "abort": {
-      "already_configured": "このアカウントは既に設定されています。"
+      "already_configured": "このアカウントは既に設定されています。",
+      "reauth_successful": "再認証に成功しました。"
     }
   }
 }

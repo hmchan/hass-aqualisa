@@ -23,6 +23,13 @@
         "data": {
           "mfa_code": "Código de verificação"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reautenticar Aqualisa",
+        "description": "A sessão de {username} expirou. Introduza a sua palavra-passe para voltar a ligar.",
+        "data": {
+          "password": "Palavra-passe"
+        }
       }
     },
     "error": {
@@ -33,7 +40,8 @@
       "mfa_failed": "A verificação MFA falhou."
     },
     "abort": {
-      "already_configured": "Esta conta já está configurada."
+      "already_configured": "Esta conta já está configurada.",
+      "reauth_successful": "Reautenticação bem-sucedida."
     }
   }
 }

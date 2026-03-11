@@ -2,7 +2,7 @@
 
 import logging
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryAuthFailed
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -18,15 +18,36 @@ PLATFORMS = [Platform.WATER_HEATER, Platform.SENSOR, Platform.SELECT, Platform.N
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Aqualisa from a config entry."""
+    from .api import AqualisaApiError
+
     session = async_get_clientsession(hass)
     api = AqualisaApi(session, entry.data.get(CONF_REGION, "uk"))
 
-    # Restore tokens or re-login
+    # Restore tokens, fall back to re-login if refresh token is invalid/expired
     token_data = entry.data.get("token_data", {})
+    logged_in = False
     if token_data and token_data.get("access_token"):
         api.restore_tokens(token_data)
-    else:
-        await api.login(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
+        try:
+            await api.ensure_token()
+            logged_in = True
+        except AqualisaApiError:
+            _LOGGER.warning("Stored tokens invalid, attempting re-login")
+
+    if not logged_in:
+        try:
+            # Clear stale tokens before re-login attempt
+            api.clear_tokens()
+            details = await api.login(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
+            if not api.access_token:
+                # Login returned MFA challenge — can't auto-re-login
+                _LOGGER.error("Aqualisa login requires MFA, please reconfigure the integration")
+                raise ConfigEntryAuthFailed("Login requires MFA verification")
+        except AqualisaApiError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
+
+    # Store credentials for re-login on token expiry
+    api.set_relogin_credentials(entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD])
 
     coordinator = AqualisaCoordinator(hass, api)
     await coordinator.async_setup()

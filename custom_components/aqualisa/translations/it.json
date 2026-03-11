@@ -23,6 +23,13 @@
         "data": {
           "mfa_code": "Codice di verifica"
         }
+      },
+      "reauth_confirm": {
+        "title": "Riautenticazione Aqualisa",
+        "description": "La sessione di {username} è scaduta. Inserisci la password per riconnetterti.",
+        "data": {
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -33,7 +40,8 @@
       "mfa_failed": "Verifica MFA non riuscita."
     },
     "abort": {
-      "already_configured": "Questo account è già configurato."
+      "already_configured": "Questo account è già configurato.",
+      "reauth_successful": "Riautenticazione riuscita."
     }
   }
 }
