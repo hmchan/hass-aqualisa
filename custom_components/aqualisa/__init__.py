@@ -23,6 +23,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     api = AqualisaApi(session, entry.data.get(CONF_REGION, "uk"))
 
+    def _persist_tokens(token_data: dict) -> None:
+        new_data = dict(entry.data)
+        new_data["token_data"] = token_data
+        hass.config_entries.async_update_entry(entry, data=new_data)
+
+    api.set_token_update_callback(_persist_tokens)
+
     # Restore tokens, fall back to re-login if refresh token is invalid/expired
     token_data = entry.data.get("token_data", {})
     logged_in = False
@@ -51,11 +58,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = AqualisaCoordinator(hass, api)
     await coordinator.async_setup()
-
-    # Store updated tokens back
-    new_data = dict(entry.data)
-    new_data["token_data"] = api.token_data
-    hass.config_entries.async_update_entry(entry, data=new_data)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 

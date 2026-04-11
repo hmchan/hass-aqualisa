@@ -35,11 +35,16 @@ class AqualisaApi:
         self._refresh_token_expires_at: float = 0
         self._username: str | None = None
         self._password: str | None = None
+        self._token_update_callback = None
 
     def set_relogin_credentials(self, username: str, password: str) -> None:
         """Store credentials for automatic re-login on token expiry."""
         self._username = username
         self._password = password
+
+    def set_token_update_callback(self, callback) -> None:
+        """Register a callback invoked with token_data whenever tokens change."""
+        self._token_update_callback = callback
 
     @property
     def base_url(self) -> str:
@@ -126,6 +131,11 @@ class AqualisaApi:
         self._refresh_token = details.get("refreshToken", self._refresh_token)
         if details.get("refreshTokenExpiresIn"):
             self._refresh_token_expires_at = now + details["refreshTokenExpiresIn"]
+        if self._token_update_callback is not None:
+            try:
+                self._token_update_callback(self.token_data)
+            except Exception:
+                _LOGGER.exception("Aqualisa token update callback failed")
 
     async def login(self, username: str, password: str) -> dict:
         """Login and return response details (may contain mfaDetails)."""
