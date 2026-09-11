@@ -39,7 +39,7 @@ from .const import (
     SOURCE_POLL,
     SOURCE_PUSH,
 )
-from .fcm_patch import apply_fcm_padding_patch
+from .fcm_patch import apply_fcm_header_fix, apply_fcm_padding_patch
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -208,6 +208,7 @@ class AqualisaCoordinator:
     async def _async_start_fcm(self) -> bool:
         """Start FCM push notification listener with retries."""
         apply_fcm_padding_patch()
+        apply_fcm_header_fix()
 
         fcm_config = FcmRegisterConfig(
             project_id=FCM_PROJECT_ID,

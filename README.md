@@ -3,7 +3,7 @@
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/hmchan/hass-aqualisa)](https://github.com/hmchan/hass-aqualisa/releases)
 
-A Home Assistant custom integration for [Aqualisa](https://www.aqualisa.co.uk/) digital smart showers. Control your shower and receive real-time status updates via Firebase Cloud Messaging push notifications — no polling required.
+A Home Assistant custom integration for [Aqualisa](https://www.aqualisa.co.uk/) digital smart showers. Control your shower and receive real-time status updates via Firebase Cloud Messaging push notifications, with a slow REST poll as a safety net.
 
 ## Supported Devices
 
@@ -35,6 +35,8 @@ Any Aqualisa smart shower that works with the official Aqualisa app, including:
 ### Real-Time Updates
 
 This integration uses **Firebase Cloud Messaging (FCM)** to receive push notifications directly from the Aqualisa cloud. Entity states update instantly when the shower is operated from any source — the physical controls, the Aqualisa app, or Home Assistant itself.
+
+Push is the primary path, but the integration also refreshes over REST every 5 minutes. That way a push connection that stops delivering degrades to slow updates rather than leaving every entity frozen at its last known value. Entities are also seeded from the API on startup, so they show real values immediately instead of `unknown` until the shower is next used.
 
 ### Multi-Factor Authentication
 
@@ -119,7 +121,18 @@ English, Traditional Chinese (繁體中文), Japanese (日本語), French, Germa
 ## Troubleshooting
 
 ### Live status not updating
-The integration registers as an FCM receiver with the Aqualisa cloud. If live updates stop working, try reloading the integration from **Settings** > **Devices & Services** > **Aqualisa** > **Reload**.
+The integration registers as an FCM receiver with the Aqualisa cloud. If live updates stop working, try reloading the integration from **Settings** > **Devices & Services** > **Aqualisa** > **Reload**. Entities keep updating on the 5 minute REST poll in the meantime, so a push outage slows updates down rather than stopping them.
+
+To see what the push path is doing, enable debug logging:
+
+```yaml
+logger:
+  logs:
+    custom_components.aqualisa: debug
+    firebase_messaging: debug
+```
+
+`FCM update for shower` means a push arrived and was applied. `Skipping undecryptable push message` means a message could not be decrypted; it is acked and dropped rather than being allowed to take the connection down with it.
 
 ### Network errors at startup
 Transient network errors during startup are handled automatically with up to 10 retries with exponential backoff.
