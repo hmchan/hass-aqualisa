@@ -8,8 +8,12 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, KEY_LIVE_ON_OFF
+from .const import DOMAIN, KEY_LIVE_ON_OFF, KEY_SOURCE, SOURCE_POLL
 from .coordinator import SIGNAL_SHOWER_UPDATE, AqualisaCoordinator
+
+# A shower checks in roughly every half hour; allow a little over that before
+# calling it offline.
+ONLINE_TIMEOUT = 1980
 
 
 async def async_setup_entry(
@@ -41,17 +45,29 @@ class AqualisaOnlineSensor(BinarySensorEntity):
         self._attr_device_info = {
             "identifiers": {(DOMAIN, str(shower_id))},
         }
-        # Determine initial state from lastSeen
+        self._attr_is_on = self._online_from_last_seen()
+
+    def _online_from_last_seen(self) -> bool | None:
+        """Derive online state from the shower's lastSeen timestamp.
+
+        Read through the coordinator rather than the dict captured at
+        construction, since a refresh replaces the stored shower payload.
+
+        Note that appliancesmodule/view returns lastSeen without a timezone
+        (unlike push messages, which are UTC with a Z suffix). It is UK local
+        time, so the naive comparison below is correct as long as Home
+        Assistant runs in UK time.
+        """
+        shower = self._coordinator.showers.get(self._shower_id) or self._shower
         last_seen = shower.get("lastSeen")
-        if last_seen:
-            try:
-                dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
-                age = (datetime.now(dt.tzinfo) - dt).total_seconds()
-                self._attr_is_on = age < 1980
-            except (ValueError, TypeError):
-                self._attr_is_on = None
-        else:
-            self._attr_is_on = None
+        if not last_seen:
+            return None
+        try:
+            dt = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
+            age = (datetime.now(dt.tzinfo) - dt).total_seconds()
+        except (ValueError, TypeError):
+            return None
+        return age < ONLINE_TIMEOUT
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(
@@ -64,8 +80,13 @@ class AqualisaOnlineSensor(BinarySensorEntity):
 
     @callback
     def _handle_update(self, data: dict) -> None:
-        # Any push message means the device is online
-        self._attr_is_on = True
+        if data.get(KEY_SOURCE) == SOURCE_POLL:
+            # A REST refresh says nothing about liveness on its own; re-derive
+            # it from the lastSeen the refresh just brought in.
+            self._attr_is_on = self._online_from_last_seen()
+        else:
+            # Any push message means the device is online
+            self._attr_is_on = True
         self.async_write_ha_state()
 
 
@@ -93,6 +114,8 @@ class AqualisaRunningSensor(BinarySensorEntity):
                 self._handle_update,
             )
         )
+        if (live := self._coordinator.live_state(self._shower_id)):
+            self._handle_update(live)
 
     @callback
     def _handle_update(self, data: dict) -> None:

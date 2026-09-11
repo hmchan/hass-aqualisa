@@ -50,3 +50,9 @@ KEY_USAGE_RUN_TIME = "usage_run_time"
 KEY_USAGE_AVG_TEMP = "usage_average_temperature"
 KEY_APPLIANCES_ID = "appliancesId"
 KEY_TIMESTAMP = "timestamp"
+
+# Marks where an update came from, so entities can treat a live push
+# differently from a periodic REST refresh.
+KEY_SOURCE = "_source"
+SOURCE_PUSH = "push"
+SOURCE_POLL = "poll"

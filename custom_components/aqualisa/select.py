@@ -66,6 +66,8 @@ class AqualisaFlowSelect(SelectEntity):
                 self._handle_update,
             )
         )
+        if (live := self._coordinator.live_state(self._shower_id)):
+            self._handle_update(live)
 
     @callback
     def _handle_update(self, data: dict) -> None:
@@ -116,6 +118,8 @@ class AqualisaOutletSelect(SelectEntity):
                 self._handle_update,
             )
         )
+        if (live := self._coordinator.live_state(self._shower_id)):
+            self._handle_update(live)
 
     @callback
     def _handle_update(self, data: dict) -> None:

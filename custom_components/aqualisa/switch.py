@@ -65,6 +65,8 @@ class AqualisaShowerSwitch(SwitchEntity):
                 self._handle_push_update,
             )
         )
+        if (live := self._coordinator.live_state(self._shower_id)):
+            self._handle_push_update(live)
 
     @callback
     def _handle_push_update(self, data: dict) -> None:

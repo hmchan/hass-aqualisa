@@ -73,6 +73,10 @@ class AqualisaSensorBase(SensorEntity):
                 self._handle_update,
             )
         )
+        # Seed from the last known state so the sensor is not "unknown" until
+        # the first push arrives, which only happens when the shower is used.
+        if (live := self._coordinator.live_state(self._shower_id)):
+            self._handle_update(live)
 
     @callback
     def _handle_update(self, data: dict) -> None:
