@@ -2,6 +2,7 @@
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/hmchan/hass-aqualisa)](https://github.com/hmchan/hass-aqualisa/releases)
+[![Validate](https://github.com/hmchan/hass-aqualisa/actions/workflows/validate.yml/badge.svg)](https://github.com/hmchan/hass-aqualisa/actions/workflows/validate.yml)
 
 A Home Assistant custom integration for [Aqualisa](https://www.aqualisa.co.uk/) digital smart showers. Control your shower and receive real-time status updates via Firebase Cloud Messaging push notifications, with a slow REST poll as a safety net.
 
