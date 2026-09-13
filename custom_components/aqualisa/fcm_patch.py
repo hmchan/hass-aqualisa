@@ -35,6 +35,12 @@ _B64URL_CHARS = frozenset(string.ascii_letters + string.digits + "-_=")
 # material and a salt, not secrets.
 _INTERESTING_HEADERS = ("crypto-key", "encryption", "content-encoding", "subtype")
 
+# Headers _handle_data_message reads without do_not_raise. A message missing
+# one of these raises RuntimeError straight into _listen, which shuts the
+# client down -- and since the message is never acked it is redelivered on
+# every reconnect, wedging the client permanently.
+_REQUIRED_HEADERS = ("crypto-key", "encryption", "subtype")
+
 
 def _pad(value: str) -> str:
     """Restore base64 padding that the sender stripped."""
@@ -141,7 +147,18 @@ def apply_fcm_header_fix() -> None:
     wanted = {"crypto-key": "dh", "encryption": "salt"}
 
     def _app_data_by_key(self, p, key, do_not_raise: bool = False) -> str:
-        value = original(self, p, key, do_not_raise)
+        try:
+            value = original(self, p, key, do_not_raise)
+        except RuntimeError:
+            if key not in _REQUIRED_HEADERS:
+                raise
+            # Degrade to an empty value rather than letting this reach _listen.
+            # Decryption then fails for this message alone, so it is skipped and
+            # acked instead of taking the connection down and being redelivered
+            # forever.
+            _LOGGER.warning("Push message has no %r header, skipping it", key)
+            return ""
+
         if key in _INTERESTING_HEADERS and _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("push header %r = %r", key, value)
         if (name := wanted.get(key)) and (found := extract_param(value, name)) is not None:
